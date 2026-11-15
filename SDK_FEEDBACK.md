@@ -90,6 +90,18 @@ budget or the relay truncated them; run diagnostics carry token counts but
 no `finish_reason`.
 **Suggestion:** record the provider's finish reason in run diagnostics.
 
+### F9 — `forced_tools` does not guarantee the tool is called
+A publisher agent with `forced_tools=["save_brief"]` completed a run with
+`run_state: completed` and **tool_calls: 0** — the model replied with a
+text confirmation and never invoked the tool. Nothing in the result flags
+the omission; our pipeline only noticed because the expected file did not
+exist.
+**Workaround shipped:** verify the side effect, not the run state; when
+the operator pre-approved the write (`--auto-approve yes`), perform it
+locally and record the substitution in diagnostics.
+**Suggestion:** a forced tool that is never called should fail the run (or
+at least surface in diagnostics as an unmet requirement).
+
 ### F8 — Minor: lazy loading makes introspection misleading
 `dir(openminion)` does not list lazily-loaded exports (e.g.
 `TurnTimeoutError` imports fine but is invisible to `dir()`), which sends

@@ -77,9 +77,9 @@ Four OpenMinion stages, one workflow (`tokenguard/agent.py`):
 | Stage | SDK pieces | What it does |
 |---|---|---|
 | **Assessor** | `Agent` + 4× `@tool(min_scope="READ_ONLY", idempotent=True)` + `output_type` | Calls GoPlus (contract security flags), honeypot.is (buy/sell simulation), DexScreener (liquidity/volume/price) and a local verdict-memory tool; applies the scoring rubric; returns a pydantic-validated `TokenSafetyReport` |
-| **Recovery** | `AgentOutputValidationError.raw_text`, typed errors | If the reply fails validation (prose-wrapped, truncated, or schema-drifted JSON — all observed live on relay-served models), the raw reply is kept forensically, a normalizing local extraction runs, and a tool-less **formatter** `Agent` converts flattened facts into the schema. `ProviderError` / `TurnTimeoutError` are retried with backoff |
+| **Recovery** | `AgentOutputValidationError.raw_text`, typed errors | If the reply fails validation (prose-wrapped, truncated, or schema-drifted JSON — all observed live on relay-served models), the raw reply is kept forensically, a normalizing local extraction runs, a tool-less **formatter** `Agent` converts flattened facts into the schema, and a deterministic **harvester** rebuilds the report from whatever verdict the model left behind (JSON or prose). `ProviderError` / `TurnTimeoutError` are retried with backoff |
 | **Brief-writer** | `subagent()` delegation | Turns the structured report into a ≤450-word Markdown brief. Output is sanity-checked — a tool-less subagent can return a runtime block notice as "successful" text — with one retry and a deterministic local renderer as fallback |
-| **Publisher** | `@tool(dangerous=True)` + `forced_tools` + `approval_callback` | Saves the brief to disk. The callback is the only path to a write: it denies any tool other than `save_brief` and sanitizes the filename |
+| **Publisher** | `@tool(dangerous=True)` + `forced_tools` + `approval_callback` | Saves the brief to disk. The callback is the only path to a write: it denies any tool other than `save_brief` and sanitizes the filename. The write's *side effect* is verified afterwards — `forced_tools` proved advisory on one provider (a run completed with 0 tool calls) — and a pre-approved (`--auto-approve yes`) write is then performed locally and recorded |
 
 Two design details that mattered:
 
@@ -98,13 +98,16 @@ holders < 100 +10; verdict bands ≤24 SAFE, 25–59 CAUTION, ≥60 DANGER.
 
 ## Example runs (live, 2026-11-15)
 
-| Token | Chain | Verdict | Path | Notes |
+| Token | Chain | Verdict | Recovery path | Notes |
 |---|---|---|---|---|
-| USDT `0x55d3…7955` | BSC | **SAFE** 5/100 | formatter | 0% taxes, open source, ~$39M liquidity, on peg |
-| CAKE `0x0E09…1cE82` | BSC | **SAFE** | extracted (normalized) | Mintable (PancakeSwap-controlled), ~$13.7M liquidity, 1.9M holders |
-| WBNB `0xbb4C…095c` | BSC | **SAFE** | — | Canonical wrapped-native contract |
+| USDT `0x55d3…7955` | BSC | **SAFE** 5/100 | formatter | First check: 0% taxes, open source, ~$39M liquidity, on peg |
+| USDT `0x55d3…7955` | BSC | **SAFE** 10/100 | harvest | Re-check: assessor cited the stored prior verdict ("consistent with prior TokenGuard check") |
+| CAKE `0x0E09…1cE82` | BSC | **SAFE** | harvest (+ local brief) | Mintable under PancakeSwap governance, 1.9M holders, pair since 2023 |
+| WBNB `0xbb4C…095c` | BSC | **SAFE** 3/100 | harvest | Canonical wrapped-native contract, 8.9M holders, $35M liquidity |
 
-Full artifacts for the USDT run are in [`examples/`](examples/).
+Every path in the table fired live at least once — the recovery pipeline
+is not theoretical. Full artifacts are in [`examples/`](examples/) and
+[`demo/TRANSCRIPT.md`](demo/TRANSCRIPT.md).
 
 ## Building Blocks Tested
 
@@ -124,7 +127,7 @@ Full artifacts for the USDT run are in [`examples/`](examples/).
 
 ## What We Learned
 
-The full field report is in **[SDK_FEEDBACK.md](SDK_FEEDBACK.md)** — eight
+The full field report is in **[SDK_FEEDBACK.md](SDK_FEEDBACK.md)** — nine
 findings with reproductions and suggestions. The short version:
 
 1. The freshness verifier only sees dated evidence inside **structured**

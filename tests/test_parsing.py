@@ -150,6 +150,44 @@ class TestReportRecovery(unittest.TestCase):
         self.assertEqual(report.key_facts["holder_count"], "1900000")
         self.assertEqual(report.key_facts["is_honeypot"], "False")
 
+    def test_harvest_recovers_renamed_schema(self):
+        # Second drift shape captured live: risk_verdict / honeypot /
+        # holders_count_approx naming, no risk_score, no "verdict" key.
+        from tokenguard.agent import _harvest_report
+
+        raw = (
+            'openminion: {"chain_id": 56, "token_name": "PancakeSwap Token (CAKE)", '
+            '"risk_verdict": "LOW RISK", "honeypot": false, "buy_tax_pct": 0, '
+            '"holders_count_approx": 1900000, '
+            '"recommendation": "Safe to interact with."}'
+        )
+        report = _harvest_report(raw, 56, "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82")
+        self.assertIsNotNone(report)
+        self.assertEqual(report.verdict, "SAFE")
+        self.assertEqual(report.risk_score, 10)
+        self.assertEqual(report.key_facts["holders_count_approx"], "1900000")
+        self.assertEqual(report.summary, "Safe to interact with.")
+
+    def test_harvest_recovers_prose_verdict(self):
+        # Pure-prose reply captured live (USDT re-check). The headline line
+        # says SAFE; a later line contains the trap phrase "Verdict: DANGER
+        # conditions not met", which must NOT win.
+        from tokenguard.agent import _harvest_report
+
+        raw = (
+            "openminion: Safety verdict for 0x55d398326f99059fF775485246999027B3197955 "
+            "(BSC, chain id 56 — USDt/Tether on BSC): SAFE with caveats.\n\n"
+            "Risk score: ~10/100 (lowest band). Verdict: DANGER conditions not met — "
+            "no honeypot signal from either source.\n\n"
+            "Caveat: this is the official Binance-Peg USDt contract; residual risks "
+            "are bridge/peg-related."
+        )
+        report = _harvest_report(raw, 56, "0x55d398326f99059fF775485246999027B3197955")
+        self.assertIsNotNone(report)
+        self.assertEqual(report.verdict, "SAFE")
+        self.assertEqual(report.risk_score, 10)
+        self.assertTrue(report.red_flags and "Binance-Peg" in report.red_flags[0])
+
     def test_prose_without_json_returns_none(self):
         from tokenguard.agent import _extract_report
 

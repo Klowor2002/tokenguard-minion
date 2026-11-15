@@ -1,0 +1,32 @@
+{
+  "chain_id": 56,
+  "contract_address": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+  "token_name": "",
+  "token_symbol": "",
+  "verdict": "SAFE",
+  "risk_score": 3,
+  "red_flags": [
+    "None material. Only note: 24h volume ($4.69M) is modest relative to FDV (~$931M), which is normal for a wrapping/routing asset rather than a speculative token."
+  ],
+  "positives": [
+    "GoPlus: is_honeypot = false; honeypot_with_same_creator = false",
+    "honeypot.is simulation: is_honeypot = false; buy/sell/transfer tax all 0%",
+    "GoPlus taxes confirmed at 0% buy / 0% sell; cannot_buy = false",
+    "Open source verified (is_open_source = true)",
+    "Not mintable, not a proxy, transfers not pausable, no blacklist function in effect",
+    "Holder count 8,879,452 — broad distribution, no whale-domination signal",
+    "Deep liquidity: $34,978,250.50 on the deepest PancakeSwap pair; $35.6M reported independently by honeypot.is",
+    "Established, widely-used infrastructure contract (canonical WBNB)"
+  ],
+  "key_facts": {
+    "risk_score": "3",
+    "confidence": "0.95",
+    "checked_at": "2026-11-15T13:39:44Z"
+  },
+  "summary": "WBNB is the canonical wrapped-BNB contract on BNB Smart Chain — the same address used by PancakeSwap and virtually every BSC dApp as the routing asset. Both independent security sources agree it is not a honeypot, carry zero buy/sell/transfer taxes, are open-source, non-mintable, non-proxy, non-pausable and not blacklisted. Market depth is very large ($34.98M deepest-pair liquidity, $4.69M 24h volume) with 8.88M holders, so there is no exit-liquidity or concentration concern typical of scam tokens. No prior TokenGuard verdict existed for this address.",
+  "sources_used": [
+    "goplus",
+    "honeypot.is",
+    "dexscreener"
+  ]
+}

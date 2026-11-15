@@ -1,0 +1,25 @@
+# TokenGuard brief — Unknown token (?)
+
+**Verdict: SAFE** · risk score 20/100 · chain 56 · `0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82`
+
+## Why
+- ⚠️ is_mintable = true — supply can be increased via owner/governance (0x73feaa...e24e); total supply already ~5.84B CAKE
+- ⚠️ No blacklist/tax data returned by GoPlus (buy_tax_pct / sell_tax_pct null) — taxes inferred from honeypot.is simulation instead
+- ⚠️ Owner-controlled upgrade/mint authority concentrates power in the PancakeSwap governance multisig
+- ✅ is_honeypot = false on both GoPlus and honeypot.is; cannot_buy = false
+- ✅ honeypot.is simulation: buy 0%, sell 0%, transfer 0% tax — exit works
+- ✅ is_open_source = true, is_proxy = false, is_blacklisted = false, transfer_pausable = false, anti-whale off, no honeypot pattern from same creator
+- ✅ Established market: 1,905,906 holders, 30 pairs seen, liquidity $4.87M on the deepest pair, $679K 24h volume
+- ✅ Pair created 2023-04-01 — multi-year history, not a fresh deployment
+
+## Key facts
+
+| Fact | Value |
+|---|---|
+| risk_score | 20 |
+
+## Summary
+
+Live check at 2026-11-15T13:57 UTC. CAKE is the long-standing PancakeSwap governance [REDACTED] contract, no honeypot flags from either GoPlus or honeypot.is, and a simulated buy/sell round-trip confirmed tradable with 0% buy, sell and transfer tax. Deep liquidity (~$4.87M deepest pair, ~$13.7M aggregate per honeypot.is), $0.68M 24h volume, price $1.62, FDV ~$587M, pair age since 2023-04-01, 1.9M holders. The only real risk lever is that the contract is mintable under a governance/owner address — supply can expand by DAO vote — plus normal DEX slippage. No prior TokenGuard verdict on record (first assessment). Verdict SAFE with low residual risk; not investment advice.
+
+_Sources: goplus, honeypot.is, dexscreener. Automated research, not financial advice._

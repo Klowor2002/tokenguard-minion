@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -33,9 +34,21 @@ from openminion import (
     tool,
     subagent,
 )
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from . import tools as tg_tools
+
+
+def _map_verdict(value: Any) -> str | None:
+    """Map a free-form verdict value onto SAFE / CAUTION / DANGER."""
+    s = str(value or "").upper()
+    if any(w in s for w in ("DANGER", "HIGH", "SCAM", "HONEYPOT")):
+        return "DANGER"
+    if any(w in s for w in ("CAUTION", "MEDIUM", "MODERATE")):
+        return "CAUTION"
+    if any(w in s for w in ("SAFE", "LOW")):
+        return "SAFE"
+    return None
 
 
 class TokenSafetyReport(BaseModel):
@@ -52,6 +65,12 @@ class TokenSafetyReport(BaseModel):
     key_facts: dict[str, str] = {}
     summary: str = ""
     sources_used: list[str] = []
+
+    @field_validator("verdict", mode="before")
+    @classmethod
+    def _canonical_verdict(cls, value: Any) -> str:
+        """Canonicalize free-form verdicts ("SAFE with caveats" -> "SAFE")."""
+        return _map_verdict(value) or str(value or "").strip().upper()
 
 
 _SCHEMA = json.dumps(TokenSafetyReport.model_json_schema(), indent=1)
@@ -177,6 +196,104 @@ def _dump_raw(stage: str, raw: str) -> None:
         pass
 
 
+
+def _harvest_report(raw: str, chain_id: int, contract_address: str) -> TokenSafetyReport | None:
+    """Last-resort deterministic recovery: build a report from whatever
+    structured verdict the model left in its raw reply.
+
+    Relay-served models invent a fresh field naming per run (observed:
+    verdict, risk_verdict "LOW RISK", honeypot, holders_count_approx, …),
+    so schema conversion by another model call is not a reliable final
+    step. This harvester is: it looks for any JSON object carrying a
+    verdict signal, maps the verdict, band-scores it if no score exists,
+    and carries the object's scalar fields into key_facts verbatim.
+    """
+    decoder = json.JSONDecoder()
+    for start, char in enumerate(raw):
+        if char != "{":
+            continue
+        try:
+            value, _end = decoder.raw_decode(raw[start:])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(value, dict):
+            continue
+        verdict = None
+        for key in ("verdict", "risk_verdict", "safety_verdict", "assessment", "rating"):
+            verdict = _map_verdict(value.get(key))
+            if verdict:
+                break
+        if verdict is None and (value.get("is_honeypot") is True or value.get("honeypot") is True):
+            verdict = "DANGER"
+        if verdict is None:
+            continue
+        score = value.get("risk_score")
+        if not isinstance(score, (int, float)):
+            score = {"SAFE": 10, "CAUTION": 40, "DANGER": 80}[verdict]
+            if value.get("is_honeypot") is True or value.get("honeypot") is True:
+                score = 95
+        facts = {
+            str(k): str(v)
+            for k, v in value.items()
+            if isinstance(v, (str, int, float, bool))
+            and k not in ("verdict", "risk_verdict", "summary", "recommendation")
+        }
+        nested = value.get("key_facts")
+        if isinstance(nested, dict):
+            for k, v in nested.items():
+                if isinstance(v, (str, int, float, bool)):
+                    facts.setdefault(str(k), str(v))
+        flags = value.get("red_flags") or value.get("risk_flags") or value.get("flags") or []
+        summary = str(value.get("summary") or value.get("recommendation") or "")
+        return TokenSafetyReport(
+            chain_id=chain_id,
+            contract_address=contract_address,
+            token_name=str(value.get("token_name") or facts.get("token_name") or ""),
+            token_symbol=str(value.get("token_symbol") or facts.get("token_symbol") or ""),
+            verdict=verdict,
+            risk_score=int(round(float(score))),
+            red_flags=[str(x) for x in flags] if isinstance(flags, list) else [],
+            positives=[str(x) for x in value.get("positives") or []] if isinstance(value.get("positives"), list) else [],
+            key_facts=facts,
+            summary=summary,
+            sources_used=["goplus", "honeypot.is", "dexscreener"],
+        )
+    # Prose fallback: the first line that pairs the word "verdict" with a
+    # verdict word decides (a later line like "Verdict: DANGER conditions
+    # not met" must not override the headline). A stated risk score is
+    # harvested alongside.
+    text = raw[len("openminion:"):].lstrip() if raw.startswith("openminion:") else raw
+    verdict = None
+    for line in text.splitlines():
+        if "verdict" not in line.lower():
+            continue
+        vm = re.search(r"\b(SAFE|CAUTION|DANGER)\b", line, re.I)
+        if vm:
+            verdict = vm.group(1).upper()
+            break
+    if verdict:
+        score_m = re.search(r"risk score[^0-9]{0,6}(\d{1,3})", text, re.I)
+        score = (
+            int(score_m.group(1))
+            if score_m
+            else {"SAFE": 10, "CAUTION": 40, "DANGER": 80}[verdict]
+        )
+        flags: list[str] = []
+        caveat = re.search(r"caveat[s]?:\s*(.+)", text, re.I | re.S)
+        if caveat:
+            flags.append(caveat.group(1).strip()[:300])
+        return TokenSafetyReport(
+            chain_id=chain_id,
+            contract_address=contract_address,
+            verdict=verdict,
+            risk_score=score,
+            red_flags=flags,
+            summary=text.strip()[:800],
+            sources_used=["goplus", "honeypot.is", "dexscreener"],
+        )
+    return None
+
+
 def _normalize_candidate(obj: dict[str, Any]) -> dict[str, Any]:
     """Map a model's near-miss report object onto the TokenSafetyReport shape.
 
@@ -196,8 +313,8 @@ def _normalize_candidate(obj: dict[str, Any]) -> dict[str, Any]:
                 obj[key] = kf[key]
     if "red_flags" not in obj and isinstance(obj.get("risk_flags"), list):
         obj["red_flags"] = [str(x) for x in obj["risk_flags"]]
-    verdict = str(obj.get("verdict", "")).strip().upper()
-    if verdict in ("SAFE", "CAUTION", "DANGER"):
+    verdict = _map_verdict(obj.get("verdict") or obj.get("risk_verdict"))
+    if verdict:
         obj["verdict"] = verdict
     score = obj.get("risk_score")
     if isinstance(score, float):
@@ -243,7 +360,7 @@ def _extract_report(text: str) -> TokenSafetyReport | None:
             value, _end = decoder.raw_decode(text[start:])
         except json.JSONDecodeError:
             continue
-        if not isinstance(value, dict) or "verdict" not in value:
+        if not isinstance(value, dict) or ("verdict" not in value and "risk_verdict" not in value):
             continue
         try:
             return TokenSafetyReport.model_validate(_normalize_candidate(value))
@@ -429,13 +546,26 @@ def run_check(
             except AgentOutputValidationError as fmt_exc:
                 _dump_raw("formatter", fmt_exc.raw_text or "")
                 report = _extract_report(fmt_exc.raw_text or "")
-                if report is None:
-                    raise
-                diagnostics.append(
-                    {"stage": "assessor", "path": "formatter-extracted",
-                     "wall_seconds": round(time.time() - started, 2)}
-                )
-                print("[stage assessor] recovered report from formatter raw reply")
+                if report is not None:
+                    diagnostics.append(
+                        {"stage": "assessor", "path": "formatter-extracted",
+                         "wall_seconds": round(time.time() - started, 2)}
+                    )
+                    print("[stage assessor] recovered report from formatter raw reply")
+                else:
+                    # Final fallback: deterministic harvest from either raw
+                    # reply. A completed analysis is never discarded over
+                    # field naming.
+                    report = _harvest_report(raw, chain_id, contract_address) or _harvest_report(
+                        fmt_exc.raw_text or "", chain_id, contract_address
+                    )
+                    if report is None:
+                        raise
+                    diagnostics.append(
+                        {"stage": "assessor", "path": "harvest",
+                         "wall_seconds": round(time.time() - started, 2)}
+                    )
+                    print("[stage assessor] recovered report via deterministic harvest")
     tg_tools.store_verdict(chain_id, contract_address, report.model_dump())
 
     # -- stage 2: brief writer (delegated subagent) ------------------------
@@ -491,6 +621,17 @@ def run_check(
     pub_result = _run_stage("publisher", _publish)
     diagnostics.append(_diagnostics("publisher", pub_result, started))
     out_path = Path(os.environ.get("TOKENGUARD_OUT_DIR", "out")) / filename
+    if not out_path.exists() and auto_approve == "yes":
+        # forced_tools proved advisory on this provider: the publisher run
+        # completed with tool_calls = 0 and never invoked save_brief
+        # (observed live). The operator pre-approved writes for this run
+        # (--auto-approve yes), so perform the gated write locally instead
+        # of losing the brief. In ask/no modes the brief stays unsaved —
+        # no write ever happens without an approval decision.
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(brief)
+        diagnostics.append({"stage": "publisher", "path": "local-write"})
+        print("[stage publisher] save_brief never called; brief written locally (auto-approve yes)")
 
     return {
         "report": report,
