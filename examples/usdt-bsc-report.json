@@ -1,0 +1,23 @@
+{
+  "chain_id": 56,
+  "contract_address": "0x55d398326f99059fF775485246999027B3197955",
+  "token_name": "Tether USD",
+  "token_symbol": "USDT",
+  "verdict": "SAFE",
+  "risk_score": 5,
+  "red_flags": [
+    "Contract is mintable (true) — standard for Tether-issued stablecoins, but means supply is under issuer control"
+  ],
+  "positives": [
+    "Not flagged as honeypot by GoPlus or honeypot.is",
+    "Buy tax 0%, sell tax 0%, transfer tax 0%",
+    "Open-source verified contract",
+    "Not blacklisted, not anti-whale, not proxy",
+    "Deep liquidity: ~$39.1M in deepest PancakeSwap pair ($42.2M per honeypot.is)",
+    "Mature pair: created May 2023, 30 pairs seen",
+    "Price on peg at $0.9992, FDV ~$9.18B"
+  ],
+  "key_facts": {},
+  "summary": "USDT (Tether USD) on BSC — legitimate, liquid major stablecoin; no honeypot indicators.",
+  "sources_used": []
+}

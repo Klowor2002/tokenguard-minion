@@ -1,0 +1,51 @@
+[
+  {
+    "stage": "assessor",
+    "run_id": "9e1b358845dd4e468d96729cdf3406ec",
+    "session_id": "8b60e5ce8806431881a8a263d2913c94",
+    "run_state": "completed",
+    "wall_seconds": 213.79,
+    "stats": {
+      "input_tokens": 15439,
+      "output_tokens": 1058,
+      "cache_read_tokens": 0,
+      "llm_calls": 2,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "duration_ms": 44349
+    },
+    "path": "formatter"
+  },
+  {
+    "stage": "brief-writer",
+    "run_id": "5f53f4aacd8b4172a498efbc90d77c78",
+    "session_id": "d2975362a1774fd18e87b3483249a704",
+    "run_state": "completed",
+    "wall_seconds": 52.08,
+    "stats": {
+      "input_tokens": 7446,
+      "output_tokens": 825,
+      "cache_read_tokens": 0,
+      "llm_calls": 3,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "duration_ms": 50195
+    }
+  },
+  {
+    "stage": "publisher",
+    "run_id": "a8259b412056498aad489f8083fca36e",
+    "session_id": "5cee560003f54b6f8c59529cb0462d25",
+    "run_state": "completed",
+    "wall_seconds": 85.77,
+    "stats": {
+      "input_tokens": 20390,
+      "output_tokens": 1007,
+      "cache_read_tokens": 0,
+      "llm_calls": 7,
+      "tool_calls": 1,
+      "tool_errors": 0,
+      "duration_ms": 84436
+    }
+  }
+]

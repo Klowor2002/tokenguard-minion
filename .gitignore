@@ -1,0 +1,8 @@
+.venv/
+.openminion/
+__pycache__/
+*.pyc
+state/
+out/
+.env
+batch*.log
