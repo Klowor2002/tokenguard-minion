@@ -28,6 +28,16 @@ DexScreener are keyless). The only key you need is an LLM provider key for
 OpenMinion itself. No wallet, no funds, no transactions — the agent only
 reads public data.
 
+## Demo
+
+**Video (1:44):** https://youtu.be/HGKtrWelHlE — a full live run checking
+USDT on BSC, ending in the `SAFE (risk 5/100)` verdict with the brief
+written through the approval gate. The recording also ships in this repo
+as [`demo/demo.mp4`](demo/demo.mp4) (asciinema source:
+[`demo/demo-usdt-run.cast`](demo/demo-usdt-run.cast)), and a written
+walkthrough of a live run is in
+[`demo/TRANSCRIPT.md`](demo/TRANSCRIPT.md).
+
 ## Quick start
 
 ```bash
@@ -102,7 +112,7 @@ holders < 100 +10; verdict bands ≤24 SAFE, 25–59 CAUTION, ≥60 DANGER.
 |---|---|---|---|---|
 | USDT `0x55d3…7955` | BSC | **SAFE** 5/100 | formatter | First check: 0% taxes, open source, ~$39M liquidity, on peg |
 | USDT `0x55d3…7955` | BSC | **SAFE** 10/100 | harvest | Re-check: assessor cited the stored prior verdict ("consistent with prior TokenGuard check") |
-| CAKE `0x0E09…1cE82` | BSC | **SAFE** | harvest (+ local brief) | Mintable under PancakeSwap governance, 1.9M holders, pair since 2023 |
+| CAKE `0x0E09…1cE82` | BSC | **SAFE** 20/100 | harvest (+ local brief) | Mintable under PancakeSwap governance, 1.9M holders, pair since 2023 |
 | WBNB `0xbb4C…095c` | BSC | **SAFE** 3/100 | harvest | Canonical wrapped-native contract, 8.9M holders, $35M liquidity |
 
 Every path in the table fired live at least once — the recovery pipeline
@@ -164,7 +174,7 @@ tokenguard/
   agent.py     # the four-stage pipeline, recovery logic, approval policy
   cli.py       # argument parsing, artifacts, exit codes
 tests/         # offline parser + recovery tests
-examples/      # artifacts from a real USDT run
+examples/      # artifacts from real live runs (USDT, CAKE, WBNB)
 scripts/       # setup.sh, run_example.sh
 SDK_FEEDBACK.md
 ```

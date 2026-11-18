@@ -1,0 +1,7 @@
+{"version": 2, "width": 80, "height": 24, "timestamp": 1794804992, "env": {"SHELL": null, "TERM": null}}
+[305.506691, "o", "[stage assessor] raw reply kept (1300 chars) at state/last_assessor_raw.txt\r\n"]
+[305.508677, "o", "[stage assessor] recovered report by local JSON extraction\r\n"]
+[538.670393, "o", "[stage brief-writer] reply unusable, retrying once\r\n"]
+[737.707597, "o", "[approval] auto-approved save_brief (call_-7080001490055588661)\r\n"]
+[823.578433, "o", "\r\n=== TokenGuard verdict: SAFE (risk 5/100) ==="]
+[823.581669, "o", "\r\nTether USD (USDT) on chain 56\r\nSummary: \r\nBrief saved: True (out/56-55d398326f-20261116-045639/brief-56-55d398326f.md)\r\nArtifacts: out/56-55d398326f-20261116-045639/report.json, out/56-55d398326f-20261116-045639/diagnostics.json\r\n"]
